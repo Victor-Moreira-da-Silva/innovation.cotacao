@@ -12,6 +12,7 @@ class Acao(str, Enum):
     CANCELAR = "cancelar"
     REMOVER = "remover"
     TROCAR = "trocar"
+    EDITAR = "editar"
     FINALIZAR = "finalizar"
     DESCONHECIDA = "desconhecida"
 

@@ -10,6 +10,7 @@ CONFIRMAR = {"sim", "s", "ok", "pode", "confirmo", "confirmar", "usar", "usa", "
 CANCELAR = {"nao", "não", "n", "cancelar", "cancela", "desistir", "parar"}
 FINALIZAR = ("finalizar", "concluir", "fechar", "gerar proposta", "gere o pdf", "gerar pdf", "pdf")
 REMOVER = ("remove", "remover", "apaga", "apagar", "excluir", "exclui", "tira", "retira")
+EDITAR = ("alterar", "altera", "editar", "edita", "mudar", "muda", "corrigir", "corrige")
 
 
 def interpretar(texto: str) -> Intencao:
@@ -34,6 +35,9 @@ def interpretar(texto: str) -> Intencao:
         alvo = re.sub(r"^(remove(?:r)?|apaga(?:r)?|exclu[íi]r?|tira|retira)\s+", "", normalizado).strip()
         return Intencao(acao=Acao.REMOVER, texto_original=original, alvo=alvo or "ultimo")
 
+    if any(normalizado.startswith(p) for p in EDITAR):
+        return _interpretar_edicao(original, normalizado)
+
     numero = _inteiro_isolado(normalizado)
     if numero is not None:
         return Intencao(acao=Acao.ESCOLHER_PRODUTO, texto_original=original, numero=numero)
@@ -42,8 +46,25 @@ def interpretar(texto: str) -> Intencao:
     if decimal is not None:
         return Intencao(acao=Acao.INFORMAR_PRECO, texto_original=original, valor=decimal, quantidade=decimal)
 
-    itens = [item for linha in original.splitlines() if (item := interpretar_item(linha.strip()))]
+    itens = interpretar_itens(original)
     return Intencao(acao=Acao.ADICIONAR if itens else Acao.DESCONHECIDA, itens=itens, texto_original=original)
+
+
+def interpretar_itens(texto: str) -> list[ItemInterpretado]:
+    itens: list[ItemInterpretado] = []
+    for linha in texto.splitlines():
+        linha = linha.strip()
+        if not linha:
+            continue
+        venda = re.fullmatch(r"venda\s*(?:r\$)?\s*(\d+(?:[.,]\d{1,2})?)", linha, re.IGNORECASE)
+        if venda and itens:
+            itens[-1].valor = Decimal(venda.group(1).replace(",", "."))
+            itens[-1].texto_original = f"{itens[-1].texto_original} {linha}"
+            continue
+        item = interpretar_item(linha)
+        if item:
+            itens.append(item)
+    return itens
 
 
 def interpretar_item(texto: str) -> ItemInterpretado | None:
@@ -86,3 +107,24 @@ def _decimal_isolado(texto: str) -> Decimal | None:
         return Decimal(re.sub(r"[^\d,.]", "", texto).replace(",", "."))
     except InvalidOperation:
         return None
+
+
+def _interpretar_edicao(original: str, normalizado: str) -> Intencao:
+    texto = re.sub(r"^(alterar|altera|editar|edita|mudar|muda|corrigir|corrige)\s+", "", normalizado).strip()
+    substituto = None
+    alvo = texto
+    troca = re.search(r"(.+?)\s+(?:para|por)\s+(.+)$", texto)
+    if troca:
+        alvo = troca.group(1).strip()
+        substituto = troca.group(2).strip()
+    valor = None
+    quantidade = None
+    valor_match = re.search(r"(?:venda|valor|preco|preço)\s*(?:r\$)?\s*(\d+(?:[.,]\d{1,2})?)", original, re.IGNORECASE)
+    if valor_match:
+        valor = Decimal(valor_match.group(1).replace(",", "."))
+    qtd_match = re.search(r"(?:qtd|qtde|quantidade)\s*(\d+(?:[.,]\d{1,3})?)", original, re.IGNORECASE)
+    if qtd_match:
+        quantidade = Decimal(qtd_match.group(1).replace(",", "."))
+    alvo = re.sub(r"\b(?:qtd|qtde|quantidade)\s*\d+(?:[.,]\d{1,3})?", "", alvo, flags=re.IGNORECASE).strip()
+    alvo = re.sub(r"\b(?:venda|valor|preco|preço)\s*(?:r\$)?\s*\d+(?:[.,]\d{1,2})?", "", alvo, flags=re.IGNORECASE).strip()
+    return Intencao(acao=Acao.EDITAR, texto_original=original, alvo=alvo, substituto=substituto, valor=valor, quantidade=quantidade)

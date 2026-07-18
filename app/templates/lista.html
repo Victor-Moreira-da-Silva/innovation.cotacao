@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ titulo }}</h1>
+<table class="table table-striped">
+  <thead><tr>{% for coluna in colunas %}<th>{{ coluna }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for linha in linhas %}
+    <tr>{% for valor in linha %}<td>{% if html_seguro %}{{ valor|safe }}{% else %}{{ valor }}{% endif %}</td>{% endfor %}</tr>
+    {% else %}
+    <tr><td colspan="{{ colunas|length }}" class="text-muted text-center">Nenhum registro encontrado.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -46,6 +46,12 @@ class ConversationEngine:
             return {"status": "erro", "resposta": "Ocorreu um erro ao processar sua mensagem. Tente novamente."}
 
     def _processar_intencao(self, proposta: Proposta, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
+        if intencao.acao == Acao.CONFIRMAR and estado.contexto.get("confirmar_exclusao"):
+            return self._confirmar_exclusao(proposta, estado)
+        if intencao.acao == Acao.CANCELAR and estado.contexto.get("confirmar_exclusao"):
+            estado.contexto.pop("confirmar_exclusao", None)
+            return {"status": "cancelado", "resposta": "Exclusão cancelada."}
+        
         if intencao.acao == Acao.FINALIZAR:
             finalizar_proposta(self.db, proposta)
             return {"status": "finalizada", "resposta": "Proposta finalizada. Você já pode gerar o PDF."}
@@ -53,6 +59,8 @@ class ConversationEngine:
             return self._remover_item(proposta, estado, intencao.alvo)
         if intencao.acao == Acao.TROCAR:
             return self._trocar_produto(proposta, intencao)
+        if intencao.acao == Acao.EDITAR:
+            return self._editar_item(proposta, intencao)
         if intencao.acao == Acao.CANCELAR:
             estado.itens.clear(); estado.item = None; estado.opcoes.clear(); estado.aguardando = None
             return {"status": "cancelado", "resposta": "Pendências canceladas. Qual produto deseja informar agora?"}
@@ -61,10 +69,19 @@ class ConversationEngine:
         if intencao.acao != Acao.ADICIONAR or not intencao.itens:
             return {"status": "desconhecida", "resposta": "Pode me dizer os produtos e quantidades da proposta?"}
 
+        nao_encontrados = []
         for item in intencao.itens:
             pendencia = self._adicionar_item_interpretado(estado, item)
             if pendencia:
+                if pendencia["status"] == "nao_encontrado" or len(intencao.itens) > 1:
+                    nao_encontrados.append(item.descricao or item.texto_original)
+                    estado.aguardando = None; estado.item = None; estado.opcoes.clear()
+                    continue
+                if nao_encontrados:
+                    estado.contexto["nao_encontrados"] = nao_encontrados
                 return pendencia
+        if nao_encontrados:
+            estado.contexto["nao_encontrados"] = nao_encontrados
         return self._perguntar_proxima_pendencia(proposta, estado)
 
     def _processar_pendencia(self, proposta: Proposta, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
@@ -143,8 +160,13 @@ class ConversationEngine:
             if item.produto_id and item.quantidade is not None and item.valor is not None:
                 adicionar_item(self.db, proposta, item.produto_id, item.quantidade, item.valor)
                 adicionados += 1
+        nao_encontrados = estado.contexto.pop("nao_encontrados", [])
         estado.itens.clear(); estado.indice = 0; estado.aguardando = None; estado.opcoes.clear(); estado.item = None
-        return {"status": "adicionado", "resposta": f"{adicionados} item(ns) adicionados com sucesso. Deseja adicionar mais algum produto ou finalizar a proposta?"}
+        aviso = ""
+        if nao_encontrados:
+            lista = ", ".join(f"'{nome}'" for nome in nao_encontrados)
+            aviso = f" Não encontrei o(s) produto(s): {lista}. Os demais foram incluídos."
+        return {"status": "adicionado", "resposta": f"{adicionados} item(ns) adicionados com sucesso.{aviso} Deseja adicionar mais algum produto ou finalizar a proposta?"}
 
     def _selecionar_produto(self, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
         escolha = intencao.numero or int(self._decimal(intencao.texto_original))
@@ -166,12 +188,57 @@ class ConversationEngine:
             estado.aguardando = None
             return {"status": "removido", "resposta": f"Removi {removido.descricao}."}
         if proposta.itens:
-            item = proposta.itens[-1]
-            descricao = item.produto.descricao
-            proposta.valor_total -= item.valor_total
-            self.db.delete(item)
-            return {"status": "removido", "resposta": f"Removi {descricao} da proposta."}
+            item = self._encontrar_item_proposta(proposta, alvo)
+            if not item:
+                return {"status": "nao_encontrado", "resposta": "Produto não encontrado nos itens da proposta."}
+            estado.contexto["confirmar_exclusao"] = item.id
+            return {"status": "confirmar_exclusao", "resposta": f"Confirma excluir {item.produto.descricao} da proposta? Responda sim para confirmar ou não para cancelar."}
         return {"status": "vazio", "resposta": "Não há itens para remover."}
+
+    def _confirmar_exclusao(self, proposta: Proposta, estado: EstadoChat) -> dict[str, str]:
+        item_id = estado.contexto.pop("confirmar_exclusao", None)
+        item = next((i for i in proposta.itens if i.id == item_id), None)
+        if not item:
+            return {"status": "nao_encontrado", "resposta": "Não encontrei o item para excluir."}
+        descricao = item.produto.descricao
+        self.db.delete(item)
+        self.db.flush()
+        self._recalcular_total(proposta, excluir_id=item_id)
+        return {"status": "removido", "resposta": f"Excluí {descricao} da proposta."}
+
+    def _editar_item(self, proposta: Proposta, intencao: Intencao) -> dict[str, str]:
+        item = self._encontrar_item_proposta(proposta, intencao.alvo)
+        if not item:
+            return {"status": "nao_encontrado", "resposta": "Produto não encontrado nos itens da proposta."}
+        alteracoes = []
+        if intencao.substituto and not any(p in intencao.substituto for p in ("valor", "preco", "preço", "venda", "qtd", "qtde", "quantidade")):
+            novo = resolver_produto(self.db, intencao.substituto)
+            if not novo.encontrado:
+                return {"status": "nao_encontrado", "resposta": f"Produto não encontrado: {intencao.substituto}."}
+            item.produto_id = novo.encontrado.id
+            alteracoes.append(f"produto para {novo.encontrado.descricao}")
+        if intencao.quantidade is not None:
+            item.quantidade = intencao.quantidade
+            alteracoes.append(f"quantidade para {item.quantidade}")
+        if intencao.valor is not None:
+            item.valor_unitario = intencao.valor
+            alteracoes.append(f"valor para R$ {item.valor_unitario:.2f}")
+        if not alteracoes:
+            return {"status": "erro", "resposta": "Informe o que deseja alterar: produto, quantidade ou valor."}
+        item.valor_total = item.quantidade * item.valor_unitario
+        self._recalcular_total(proposta)
+        return {"status": "editado", "resposta": f"Alterei {', '.join(alteracoes)}."}
+
+    def _encontrar_item_proposta(self, proposta: Proposta, alvo: str | None):
+        if not proposta.itens:
+            return None
+        if not alvo or "ultimo" in alvo or "último" in alvo:
+            return proposta.itens[-1]
+        alvo_norm = alvo.lower()
+        return next((item for item in proposta.itens if alvo_norm in item.produto.descricao.lower()), None)
+
+    def _recalcular_total(self, proposta: Proposta, excluir_id: int | None = None) -> None:
+        proposta.valor_total = sum((i.valor_total for i in proposta.itens if i.id != excluir_id), Decimal("0"))
 
     def _trocar_produto(self, proposta: Proposta, intencao: Intencao) -> dict[str, str]:
         if not intencao.alvo or not intencao.substituto:

@@ -29,3 +29,53 @@ def test_chat_adds_complete_item(tmp_path):
     db.refresh(proposta)
     assert len(proposta.itens) == 1
     assert float(proposta.valor_total) == 150.0
+
+
+def _proposta_teste(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path}/test.db", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    seed_db(db)
+    cliente = db.query(Cliente).first()
+    proposta = criar_proposta(db, cliente.id)
+    return db, proposta
+
+
+def test_chat_adds_multiple_items_and_reports_missing_product(tmp_path):
+    db, proposta = _proposta_teste(tmp_path)
+    result = processar_mensagem(
+        db,
+        proposta,
+        """2 detergentes Audax
+Venda 15,00
+3 produto inexistente
+Venda 9,99
+4 papel
+Venda22,00""",
+    )
+    assert result["status"] == "adicionado"
+    assert "Não encontrei" in result["resposta"]
+    db.refresh(proposta)
+    assert len(proposta.itens) == 2
+    assert float(proposta.valor_total) == 118.0
+
+
+def test_chat_edits_and_confirms_delete_item(tmp_path):
+    db, proposta = _proposta_teste(tmp_path)
+    processar_mensagem(db, proposta, "2 detergentes Audax por 15 reais")
+
+    result = processar_mensagem(db, proposta, "alterar detergente quantidade 3 valor 20")
+    assert result["status"] == "editado"
+    db.refresh(proposta)
+    assert float(proposta.itens[0].quantidade) == 3.0
+    assert float(proposta.itens[0].valor_unitario) == 20.0
+    assert float(proposta.valor_total) == 60.0
+
+    result = processar_mensagem(db, proposta, "excluir detergente")
+    assert result["status"] == "confirmar_exclusao"
+    result = processar_mensagem(db, proposta, "sim")
+    assert result["status"] == "removido"
+    db.refresh(proposta)
+    assert proposta.itens == []
+    assert float(proposta.valor_total) == 0.0
