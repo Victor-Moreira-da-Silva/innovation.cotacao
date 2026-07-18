@@ -35,7 +35,8 @@ class ConversationEngine:
             estado.registrar("assistente", resposta["resposta"])
             salvar_estado(proposta, estado)
             self.db.commit()
-            return resposta
+            self.db.refresh(proposta)
+            return self._resposta_com_proposta(proposta, resposta)
         except (InvalidOperation, ValueError) as exc:
             logger.info("Mensagem inválida no chat da proposta %s: %s", proposta.id, exc)
             self.db.rollback()
@@ -44,6 +45,22 @@ class ConversationEngine:
             logger.exception("Erro ao processar chat da proposta %s", proposta.id)
             self.db.rollback()
             return {"status": "erro", "resposta": "Ocorreu um erro ao processar sua mensagem. Tente novamente."}
+
+    def _resposta_com_proposta(self, proposta: Proposta, resposta: dict[str, str]) -> dict[str, object]:
+        resposta = dict(resposta)
+        resposta["valor_total"] = float(proposta.valor_total or 0)
+        resposta["status_proposta"] = proposta.status
+        resposta["itens"] = [
+            {
+                "id": item.id,
+                "quantidade": str(item.quantidade),
+                "produto": item.produto.descricao if item.produto else "-",
+                "valor_unitario": float(item.valor_unitario),
+                "valor_total": float(item.valor_total),
+            }
+            for item in proposta.itens
+        ]
+        return resposta
 
     def _processar_intencao(self, proposta: Proposta, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
         if intencao.acao == Acao.CONFIRMAR and estado.contexto.get("confirmar_exclusao"):

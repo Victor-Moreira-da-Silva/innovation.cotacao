@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from sqlalchemy.orm import Session
@@ -34,14 +34,38 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 def tela_clientes(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request=request,
-        name="lista.html",
+        name="clientes.html",
         context={
             "request": request,
-            "titulo": "Clientes",
-            "colunas": ["Razão social", "Nome fantasia", "CNPJ", "Telefone", "E-mail"],
-            "linhas": [[c.razao_social, c.nome_fantasia or "-", c.cnpj or "-", c.telefone or "-", c.email or "-"] for c in db.query(Cliente).order_by(Cliente.razao_social).all()],
+            "clientes": db.query(Cliente).order_by(Cliente.razao_social).all(),
+            "mensagem": request.query_params.get("mensagem"),
         },
     )
+
+
+@router.post("/clientes")
+def cadastrar_cliente(
+    razao_social: str = Form(...),
+    nome_fantasia: str = Form(""),
+    cnpj: str = Form(""),
+    endereco: str = Form(""),
+    cidade: str = Form(""),
+    telefone: str = Form(""),
+    email: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    cliente = Cliente(
+        razao_social=razao_social.strip(),
+        nome_fantasia=nome_fantasia.strip() or None,
+        cnpj=cnpj.strip() or None,
+        endereco=endereco.strip() or None,
+        cidade=cidade.strip() or None,
+        telefone=telefone.strip() or None,
+        email=email.strip() or None,
+    )
+    db.add(cliente)
+    db.commit()
+    return RedirectResponse("/clientes?mensagem=Cliente+cadastrado+com+sucesso", status_code=303)
 
 
 @router.get("/propostas", response_class=HTMLResponse)

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center mb-4">
+  <div>
+    <h1 class="mb-1">Clientes</h1>
+    <p class="text-muted mb-0">Cadastre e consulte os clientes usados nas propostas.</p>
+  </div>
+  <a class="btn btn-outline-primary" href="/">Voltar ao dashboard</a>
+</div>
+
+{% if mensagem %}
+<div class="alert alert-success" role="alert">{{ mensagem }}</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Cadastrar cliente</div>
+      <div class="card-body">
+        <form method="post" action="/clientes" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="razao_social">Razão social *</label>
+            <input class="form-control" id="razao_social" name="razao_social" required maxlength="255">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="nome_fantasia">Nome fantasia</label>
+            <input class="form-control" id="nome_fantasia" name="nome_fantasia" maxlength="255">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="cnpj">CNPJ</label>
+            <input class="form-control" id="cnpj" name="cnpj" maxlength="30">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="telefone">Telefone</label>
+            <input class="form-control" id="telefone" name="telefone" maxlength="50">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="email">E-mail</label>
+            <input class="form-control" id="email" name="email" type="email" maxlength="180">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="endereco">Endereço</label>
+            <input class="form-control" id="endereco" name="endereco" maxlength="255">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="cidade">Cidade</label>
+            <input class="form-control" id="cidade" name="cidade" maxlength="120">
+          </div>
+          <div class="col-12 d-grid">
+            <button class="btn btn-primary">Salvar cliente</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Clientes cadastrados</div>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle mb-0">
+          <thead><tr><th>Razão social</th><th>Nome fantasia</th><th>CNPJ</th><th>Contato</th></tr></thead>
+          <tbody>
+            {% for c in clientes %}
+            <tr>
+              <td>{{ c.razao_social }}</td>
+              <td>{{ c.nome_fantasia or '-' }}</td>
+              <td>{{ c.cnpj or '-' }}</td>
+              <td>{{ c.telefone or '-' }}{% if c.email %}<br><small class="text-muted">{{ c.email }}</small>{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted text-center py-4">Nenhum cliente cadastrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -26,10 +26,9 @@ def adicionar_item(db: Session, proposta: Proposta, produto_id: int, quantidade:
     )
     db.add(item)
     db.flush()
+    db.refresh(proposta, attribute_names=["itens"])
     proposta.valor_total = sum((i.valor_total for i in proposta.itens), Decimal("0"))
-    db.commit()
-    db.refresh(item)
-    db.refresh(proposta)
+    db.flush()
     return item
 
 
