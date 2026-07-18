@@ -33,6 +33,7 @@ def parse_regex(message: str) -> ParsedMessage:
         if match:
             result.valor = _decimal(match.group(1))
             text = (text[:match.start()] + text[match.end():]).strip()
+            text = re.sub(r"\b(reais|real)\b", "", text, flags=re.I).strip()
             break
     words = text.split()
     if words:

@@ -63,7 +63,7 @@ class Cliente(Base):
 
 
 class AliasProduto(Base):
-    __tablename__ = "aliases_produto"
+    __tablename__ = "produto_alias"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     alias: Mapped[str] = mapped_column(String(180), index=True)
