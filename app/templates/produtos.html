@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <h2>📦 Produtos</h2>
+
+        <div>
+
+            <button class="btn btn-success me-2">
+                ➕ Novo Produto
+            </button>
+
+            <button
+                class="btn btn-primary"
+                onclick="document.getElementById('arquivo').click()">
+
+                📥 Importar PDF
+
+            </button>
+
+        </div>
+
+    </div>
+
+    {% if resultado %}
+
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+
+        <h5 class="mb-3">
+            ✅ Importação concluída
+        </h5>
+
+        <p class="mb-1">
+            <strong>Produtos encontrados:</strong>
+            {{ resultado.encontrados }}
+        </p>
+
+        <p class="mb-1">
+            <strong>Produtos adicionados:</strong>
+            {{ resultado.adicionados }}
+        </p>
+
+        <p class="mb-0">
+            <strong>Produtos já existentes:</strong>
+            {{ resultado.existentes }}
+        </p>
+
+        <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert">
+        </button>
+
+    </div>
+
+    {% endif %}
+
+    <form
+        id="formImportacao"
+        action="/produtos/importar"
+        method="post"
+        enctype="multipart/form-data">
+
+        <input
+            id="arquivo"
+            type="file"
+            name="arquivo"
+            accept=".pdf"
+            hidden
+            onchange="document.getElementById('formImportacao').submit()">
+
+    </form>
+
+    <input
+        id="pesquisa"
+        class="form-control mb-3"
+        placeholder="🔍 Pesquisar produto...">
+
+    <table class="table table-striped table-hover" id="tabelaProdutos">
+
+        <thead class="table-dark">
+
+            <tr>
+
+                <th width="120">Código</th>
+
+                <th>Descrição</th>
+
+                <th width="200">Marca</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for produto in produtos %}
+
+            <tr>
+
+                <td>{{ produto.codigo }}</td>
+
+                <td>{{ produto.descricao }}</td>
+
+                <td>{{ produto.marca or "-" }}</td>
+
+            </tr>
+
+        {% else %}
+
+            <tr>
+
+                <td colspan="3" class="text-center text-muted">
+
+                    Nenhum produto cadastrado.
+
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+<script>
+
+document.getElementById("pesquisa").addEventListener("keyup", function(){
+
+    let filtro = this.value.toLowerCase();
+
+    let linhas = document.querySelectorAll("#tabelaProdutos tbody tr");
+
+    linhas.forEach(function(linha){
+
+        if(linha.innerText.toLowerCase().includes(filtro)){
+
+            linha.style.display = "";
+
+        }else{
+
+            linha.style.display = "none";
+
+        }
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

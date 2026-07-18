@@ -1,0 +1,21 @@
+for produto in pdf:
+
+    existe = db.query(Produto)\
+        .filter(Produto.codigo == codigo)\
+        .first()
+
+    if existe:
+        continue
+
+    db.add(
+        Produto(
+            codigo=codigo,
+            descricao=descricao,
+            marca=marca,
+            categoria=categoria,
+            unidade=unidade,
+            volume=volume
+        )
+    )
+
+db.commit()

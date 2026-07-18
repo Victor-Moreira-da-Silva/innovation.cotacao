@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row">
+
+    <div class="col-md-3">
+
+        <div class="list-group shadow">
+
+            <a href="/" class="list-group-item list-group-item-action active">
+                🏠 Dashboard
+            </a>
+
+            <a href="/clientes" class="list-group-item list-group-item-action">
+                👥 Clientes
+            </a>
+
+            <a href="/produtos" class="list-group-item list-group-item-action">
+                📦 Produtos
+            </a>
+
+            <a href="/propostas" class="list-group-item list-group-item-action">
+                📄 Propostas
+            </a>
+
+            <a href="/historico" class="list-group-item list-group-item-action">
+                📜 Histórico
+            </a>
+
+            <a href="/configuracoes" class="list-group-item list-group-item-action">
+                ⚙ Configurações
+            </a>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-9">
+
+        <h2 class="mb-4">Dashboard</h2>
+
+        <div class="row">
+
+            <div class="col-md-4 mb-3">
+                <div class="card shadow">
+                    <div class="card-body text-center">
+                        <h3>{{ clientes|length }}</h3>
+                        <p>Clientes</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card shadow">
+                    <div class="card-body text-center">
+                        <h3>{{ produtos|length }}</h3>
+                        <p>Produtos</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card shadow">
+                    <div class="card-body text-center">
+                        <h3>{{ propostas|length }}</h3>
+                        <p>Propostas</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="card shadow mt-4">
+
+            <div class="card-header">
+
+                Nova Proposta
+
+            </div>
+
+            <div class="card-body">
+
+                <form id="proposal-form">
+
+                    <label class="form-label">
+                        Cliente
+                    </label>
+
+                    <select
+                        class="form-select mb-3"
+                        name="cliente_id">
+
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}">
+                            {{ c.razao_social }}
+                        </option>
+                        {% endfor %}
+
+                    </select>
+
+                    <button class="btn btn-primary">
+                        Criar Proposta
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+document.querySelector("#proposal-form").addEventListener("submit", async (e)=>{
+
+    e.preventDefault();
+
+    const resposta = await fetch("/propostas",{
+
+        method:"POST",
+
+        body:new FormData(e.target)
+
+    });
+
+    const dados = await resposta.json();
+
+    location.href="/propostas/"+dados.id;
+
+});
+
+</script>
+
+{% endblock %}

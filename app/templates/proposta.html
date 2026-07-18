@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block content %}
+<div class="d-flex justify-content-between"><h1>Proposta {{ proposta.numero }}</h1><a class="btn btn-outline-secondary" href="/propostas/{{ proposta.id }}/pdf">Exportar PDF</a></div><p>Cliente: {{ proposta.cliente.razao_social if proposta.cliente else '-' }} | Status: {{ proposta.status }} | Total: R$ {{ '%.2f'|format(proposta.valor_total) }}</p>
+<div class="chat-box mb-3" id="chat">{% for m in proposta.mensagens %}<div class="msg {{ m.usuario }}"><strong>{{ m.usuario }}:</strong> {{ m.mensagem }}</div>{% endfor %}</div>
+<form id="chat-form" class="input-group"><input class="form-control" name="mensagem" placeholder="Ex.: 10 detergentes Audax por 15 reais" autofocus><button class="btn btn-primary">Enviar</button></form>
+<h2 class="mt-4">Itens</h2><table class="table"><tr><th>Qtd</th><th>Produto</th><th>Unitário</th><th>Total</th></tr>{% for i in proposta.itens %}<tr><td>{{ i.quantidade }}</td><td>{{ i.produto.descricao }}</td><td>R$ {{ '%.2f'|format(i.valor_unitario) }}</td><td>R$ {{ '%.2f'|format(i.valor_total) }}</td></tr>{% endfor %}</table>
+<script src="/static/chat.js"></script>
+{% endblock %}
