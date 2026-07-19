@@ -106,7 +106,7 @@ class ConversationEngine:
             estado.aguardando = None; estado.item = None; estado.opcoes.clear()
             return {"status": "cancelado", "resposta": "Tudo bem, cancelei essa pendência. Qual o próximo produto?"}
         if estado.aguardando == Aguardando.PRODUTO:
-            return self._selecionar_produto(estado, intencao)
+            return self._selecionar_produto(proposta, estado, intencao)
 
         item = self._item_atual(estado)
         if not item:
@@ -185,7 +185,7 @@ class ConversationEngine:
             aviso = f" Não encontrei o(s) produto(s): {lista}. Os demais foram incluídos."
         return {"status": "adicionado", "resposta": f"{adicionados} item(ns) adicionados com sucesso.{aviso} Deseja adicionar mais algum produto ou finalizar a proposta?"}
 
-    def _selecionar_produto(self, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
+    def _selecionar_produto(self, proposta: Proposta, estado: EstadoChat, intencao: Intencao) -> dict[str, str]:
         escolha = intencao.numero or int(self._decimal(intencao.texto_original))
         if escolha < 1 or escolha > len(estado.opcoes):
             return {"status": "erro", "resposta": "Opção inválida. Informe um dos números listados."}
@@ -197,7 +197,7 @@ class ConversationEngine:
         estado.item.descricao = produto.descricao
         estado.itens.append(estado.item)
         estado.item = None; estado.opcoes.clear(); estado.aguardando = None
-        return {"status": "ok", "resposta": "Produto selecionado."}
+        return self._perguntar_proxima_pendencia(proposta, estado)
 
     def _remover_item(self, proposta: Proposta, estado: EstadoChat, alvo: str | None) -> dict[str, str]:
         if estado.itens:

@@ -1,6 +1,6 @@
 from app.database.init_db import seed_db
 from app.database.session import Base
-from app.models.entities import Cliente
+from app.models.entities import Cliente, Produto
 from app.parser.regex_parser import parse_regex
 from app.services.chat_service import processar_mensagem
 from app.services.proposta_service import criar_proposta
@@ -79,3 +79,21 @@ def test_chat_edits_and_confirms_delete_item(tmp_path):
     db.refresh(proposta)
     assert proposta.itens == []
     assert float(proposta.valor_total) == 0.0
+
+def test_chat_adds_item_after_ambiguous_product_selection(tmp_path):
+    db, proposta = _proposta_teste(tmp_path)
+    db.add(Produto(codigo="SAN5B", descricao="Agua Sanitaria 5L", marca="Outra", unidade="GL", volume="5L", categoria="Limpeza", preco_padrao=9))
+    db.commit()
+
+    result = processar_mensagem(db, proposta, "10 Água Sanitária 5L por 2 reais")
+    assert result["status"] == "escolher_produto"
+
+    result = processar_mensagem(db, proposta, "1")
+
+    assert result["status"] == "adicionado"
+    assert "1 item(ns) adicionados" in result["resposta"]
+    assert len(result["itens"]) == 1
+    assert result["valor_total"] == 20.0
+    db.refresh(proposta)
+    assert len(proposta.itens) == 1
+    assert float(proposta.valor_total) == 20.0

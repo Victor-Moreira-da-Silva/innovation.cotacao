@@ -109,6 +109,9 @@ def resolver_produto(db: Session, texto: str | None, limite: int = 5) -> Resulta
         return resultado
 
     resultado.score = ordenado[0].score
+    if ordenado[0].score >= 100 and (len(ordenado) == 1 or ordenado[1].score < 100):
+        resultado.encontrado = ordenado[0].produto
+        return resultado
     if ordenado[0].score >= 92 and (len(ordenado) == 1 or ordenado[0].score - ordenado[1].score >= 8):
         resultado.encontrado = ordenado[0].produto
         return resultado
