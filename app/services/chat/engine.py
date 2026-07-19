@@ -28,7 +28,9 @@ class ConversationEngine:
         intencao = interpretar(mensagem)
 
         try:
-            if estado.aguardando:
+            if estado.aguardando and intencao.acao in {Acao.REMOVER, Acao.EDITAR, Acao.TROCAR, Acao.FINALIZAR}:
+                resposta = self._processar_intencao(proposta, estado, intencao)
+            elif estado.aguardando:
                 resposta = self._processar_pendencia(proposta, estado, intencao)
             else:
                 resposta = self._processar_intencao(proposta, estado, intencao)

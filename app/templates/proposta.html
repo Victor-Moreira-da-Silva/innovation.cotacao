@@ -19,10 +19,14 @@
   {% endfor %}
 </div>
 
-<form id="chat-form" class="input-group mb-4">
-  <input class="form-control" name="mensagem" placeholder="Ex.: 10 detergentes Audax por 15 reais" autofocus>
+<form id="chat-form" class="input-group mb-2">
+  <input class="form-control" name="mensagem" placeholder="Ex.: 10 detergentes Audax por 15 reais; alterar detergente quantidade 3 valor 20; excluir detergente" autofocus>
   <button class="btn btn-primary">Enviar</button>
 </form>
+<p class="text-muted small mb-4">
+  Pelo chat você pode adicionar produtos, remover itens e alterar quantidade ou valor.
+  Exemplos: <code>remover detergente</code>, <code>alterar quantidade detergente para 3</code> ou <code>alterar valor detergente para 20</code>.
+</p>
 
 <h2 class="mt-4">Itens</h2>
 <div class="table-responsive">

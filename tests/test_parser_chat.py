@@ -97,3 +97,32 @@ def test_chat_adds_item_after_ambiguous_product_selection(tmp_path):
     db.refresh(proposta)
     assert len(proposta.itens) == 1
     assert float(proposta.valor_total) == 20.0
+
+
+def test_chat_edits_quantity_or_value_with_field_first_commands(tmp_path):
+    db, proposta = _proposta_teste(tmp_path)
+    processar_mensagem(db, proposta, "2 detergentes Audax por 15 reais")
+
+    result = processar_mensagem(db, proposta, "alterar quantidade detergente para 4")
+    assert result["status"] == "editado"
+    db.refresh(proposta)
+    assert float(proposta.itens[0].quantidade) == 4.0
+    assert float(proposta.itens[0].valor_unitario) == 15.0
+    assert float(proposta.valor_total) == 60.0
+
+    result = processar_mensagem(db, proposta, "alterar valor detergente para 12,50")
+    assert result["status"] == "editado"
+    db.refresh(proposta)
+    assert float(proposta.itens[0].quantidade) == 4.0
+    assert float(proposta.itens[0].valor_unitario) == 12.5
+    assert float(proposta.valor_total) == 50.0
+
+
+def test_chat_can_remove_pending_item_while_asking_for_value(tmp_path):
+    db, proposta = _proposta_teste(tmp_path)
+    result = processar_mensagem(db, proposta, "2 detergentes Audax")
+    assert result["status"] in {"sugestao", "valor"}
+
+    result = processar_mensagem(db, proposta, "remover detergente")
+    assert result["status"] == "removido"
+    assert "detergente" in result["resposta"].lower()

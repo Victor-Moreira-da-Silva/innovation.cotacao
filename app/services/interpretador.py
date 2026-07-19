@@ -111,20 +111,45 @@ def _decimal_isolado(texto: str) -> Decimal | None:
 
 def _interpretar_edicao(original: str, normalizado: str) -> Intencao:
     texto = re.sub(r"^(alterar|altera|editar|edita|mudar|muda|corrigir|corrige)\s+", "", normalizado).strip()
-    substituto = None
+    original_sem_comando = re.sub(r"^(alterar|altera|editar|edita|mudar|muda|corrigir|corrige)\s+", "", original, flags=re.IGNORECASE).strip()
+    valor = _extrair_valor_edicao(original_sem_comando, ("venda", "valor", "preco", "preço"), casas_decimais=2)
+    quantidade = _extrair_valor_edicao(original_sem_comando, ("qtd", "qtde", "quantidade"), casas_decimais=3)
     alvo = texto
-    troca = re.search(r"(.+?)\s+(?:para|por)\s+(.+)$", texto)
-    if troca:
-        alvo = troca.group(1).strip()
-        substituto = troca.group(2).strip()
-    valor = None
-    quantidade = None
-    valor_match = re.search(r"(?:venda|valor|preco|preço)\s*(?:r\$)?\s*(\d+(?:[.,]\d{1,2})?)", original, re.IGNORECASE)
-    if valor_match:
-        valor = Decimal(valor_match.group(1).replace(",", "."))
-    qtd_match = re.search(r"(?:qtd|qtde|quantidade)\s*(\d+(?:[.,]\d{1,3})?)", original, re.IGNORECASE)
-    if qtd_match:
-        quantidade = Decimal(qtd_match.group(1).replace(",", "."))
+    substituto = None
+
+    campo_primeiro = re.search(
+        r"^(?P<campo>valor|preco|preço|venda|qtd|qtde|quantidade)\s+(?:(?:de|do|da)\s+)?(?P<alvo>.+?)\s+(?:para|por|=)\s*(?:r\$\s*)?(?P<numero>\d+(?:[.,]\d{1,3})?)$",
+        original_sem_comando,
+        re.IGNORECASE,
+    )
+    if campo_primeiro:
+        alvo = campo_primeiro.group("alvo").strip()
+        numero = Decimal(campo_primeiro.group("numero").replace(",", "."))
+        if campo_primeiro.group("campo").lower() in {"qtd", "qtde", "quantidade"}:
+            quantidade = numero
+        else:
+            valor = numero
+    else:
+        troca = re.search(r"(.+?)\s+(?:para|por|=)\s+(.+)$", texto)
+        if troca:
+            alvo = troca.group(1).strip()
+            substituto = troca.group(2).strip()
+            numero = _decimal_isolado(substituto)
+            campo_alvo = alvo.split()[0] if alvo else ""
+            if numero is not None and campo_alvo in {"qtd", "qtde", "quantidade", "valor", "preco", "preço", "venda"}:
+                if campo_alvo in {"qtd", "qtde", "quantidade"}:
+                    quantidade = numero
+                else:
+                    valor = numero
+                substituto = None
+
     alvo = re.sub(r"\b(?:qtd|qtde|quantidade)\s*\d+(?:[.,]\d{1,3})?", "", alvo, flags=re.IGNORECASE).strip()
     alvo = re.sub(r"\b(?:venda|valor|preco|preço)\s*(?:r\$)?\s*\d+(?:[.,]\d{1,2})?", "", alvo, flags=re.IGNORECASE).strip()
+    alvo = re.sub(r"^(?:qtd|qtde|quantidade|venda|valor|preco|preço)\s+", "", alvo, flags=re.IGNORECASE).strip()
     return Intencao(acao=Acao.EDITAR, texto_original=original, alvo=alvo, substituto=substituto, valor=valor, quantidade=quantidade)
+
+
+def _extrair_valor_edicao(original: str, campos: tuple[str, ...], casas_decimais: int) -> Decimal | None:
+    campos_regex = "|".join(re.escape(campo) for campo in campos)
+    match = re.search(rf"(?:{campos_regex})\s*(?:r\$)?\s*(\d+(?:[.,]\d{{1,{casas_decimais}}})?)", original, re.IGNORECASE)
+    return Decimal(match.group(1).replace(",", ".")) if match else None
